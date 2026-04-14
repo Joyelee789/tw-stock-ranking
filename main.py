@@ -66,7 +66,43 @@ app.include_router(batch_kline.router, prefix="/api")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": "2026-04-14-v5"}
+
+
+@app.get("/debug/test-apis")
+async def debug_test_apis():
+    """Diagnostic endpoint to test which external APIs are accessible."""
+    import httpx
+    import time
+
+    results = {}
+    test_urls = {
+        "twse_opendata": "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL",
+        "twse_mi_index": "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=20260414&type=ALLBUT0999",
+        "tpex": "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?l=zh-tw&d=115/04/14&_=1",
+        "isin": "https://isin.twse.com.tw/isin/C_public.jsp?strMode=2",
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    }
+
+    for name, url in test_urls.items():
+        start = time.time()
+        try:
+            async with httpx.AsyncClient(timeout=10, verify=False, headers=headers) as client:
+                resp = await client.get(url)
+                elapsed = round(time.time() - start, 2)
+                results[name] = {
+                    "status": resp.status_code,
+                    "size": len(resp.content),
+                    "elapsed_s": elapsed,
+                }
+        except Exception as e:
+            elapsed = round(time.time() - start, 2)
+            results[name] = {"error": str(e), "elapsed_s": elapsed}
+
+    return results
 
 
 @app.get("/")
