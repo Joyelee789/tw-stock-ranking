@@ -1,12 +1,8 @@
-import os
-
 import httpx
 from bs4 import BeautifulSoup
 
 from config import TWSE_ISIN_URL, CACHE_DIR, CODES_CACHE_MAX_AGE_DAYS
 from services.cache_manager import read_cache, write_cache, is_cache_fresh
-
-_VERIFY_SSL = os.environ.get("DISABLE_SSL_VERIFY", "").strip() != "1"
 
 _CODES_CACHE_PATH = CACHE_DIR / "codes.json"
 _codes_cache: dict[str, dict] | None = None
@@ -25,7 +21,7 @@ async def get_all_codes() -> dict[str, dict]:
             return data
 
     codes = {}
-    async with httpx.AsyncClient(timeout=30, follow_redirects=True, verify=_VERIFY_SSL) as client:
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True, verify=False) as client:
         # strMode=2: TWSE listed, strMode=4: TPEX OTC
         for mode, market in [("2", "上市"), ("4", "上櫃")]:
             resp = await client.get(TWSE_ISIN_URL, params={"strMode": mode})

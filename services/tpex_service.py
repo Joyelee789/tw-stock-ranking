@@ -1,11 +1,7 @@
-import os
-
 import httpx
 
 from config import TPEX_QUOTE_URL, to_roc_date
 from services.rate_limiter import twse_rate_limiter
-
-_VERIFY_SSL = os.environ.get("DISABLE_SSL_VERIFY", "").strip() != "1"
 
 
 async def fetch_tpex_ranking(date_str: str) -> list[dict]:
@@ -17,7 +13,7 @@ async def fetch_tpex_ranking(date_str: str) -> list[dict]:
     roc_date = to_roc_date(date_str)
     params = {"l": "zh-tw", "d": roc_date, "_": "1"}
 
-    async with httpx.AsyncClient(timeout=30, verify=_VERIFY_SSL) as client:
+    async with httpx.AsyncClient(timeout=30, verify=False) as client:
         resp = await client.get(TPEX_QUOTE_URL, params=params)
         resp.raise_for_status()
         data = resp.json()

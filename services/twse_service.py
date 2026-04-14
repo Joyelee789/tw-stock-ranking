@@ -1,11 +1,7 @@
-import os
-
 import httpx
 
 from config import TWSE_MI_INDEX_URL, to_twse_date
 from services.rate_limiter import twse_rate_limiter
-
-_VERIFY_SSL = os.environ.get("DISABLE_SSL_VERIFY", "").strip() != "1"
 
 
 async def fetch_twse_ranking(date_str: str) -> list[dict]:
@@ -20,7 +16,7 @@ async def fetch_twse_ranking(date_str: str) -> list[dict]:
         "type": "ALLBUT0999",
     }
 
-    async with httpx.AsyncClient(timeout=30, verify=_VERIFY_SSL) as client:
+    async with httpx.AsyncClient(timeout=30, verify=False) as client:
         resp = await client.get(TWSE_MI_INDEX_URL, params=params)
         resp.raise_for_status()
         data = resp.json()
