@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台股漲幅排行 - 240天K線預覽</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://unpkg.com/lightweight-charts@5.0.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <header>
+        <h1>台股漲幅排行</h1>
+        <div id="controls">
+            <label>
+                日期
+                <input type="date" id="date-picker">
+            </label>
+            <label>
+                顯示
+                <select id="top-select">
+                    <option value="50">Top 50</option>
+                    <option value="100" selected>Top 100</option>
+                </select>
+            </label>
+            <label>
+                族群
+                <select id="sector-filter">
+                    <option value="">全部族群</option>
+                </select>
+            </label>
+            <div id="loading-indicator" class="hidden">
+                <div class="spinner"></div>
+                <span id="loading-text">載入中...</span>
+                <div id="progress-bar"><div id="progress-fill"></div></div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div id="left-panel">
+            <div id="table-wrapper">
+                <table id="ranking-table">
+                    <thead>
+                        <tr>
+                            <th class="col-rank">#</th>
+                            <th class="col-code">代號</th>
+                            <th class="col-name">名稱</th>
+                            <th class="col-close">收盤</th>
+                            <th class="col-change">漲跌%</th>
+                            <th class="col-volume">成交量</th>
+                            <th class="col-sector">族群</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="right-panel">
+            <div id="chart-section">
+                <div id="stock-info">
+                    <span id="stock-title">請選擇股票</span>
+                    <span id="stock-ohlcv" class="hidden"></span>
+                </div>
+                <div id="chart-container"></div>
+            </div>
+            <div id="sector-stats-section">
+                <h3>族群分布</h3>
+                <div id="sector-chart"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="hidden"></div>
+
+    <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>台股漲幅排行</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --border: #21262d;
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --up: #ff3333;
+  --down: #00cc00;
+  --accent: #58a6ff;
+  --chip: #21262d;
+  --chip-active: #58a6ff;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  padding: calc(var(--safe-top) + 12px) 16px 10px;
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.header h1 { font-size: 20px; font-weight: 700; }
+.header .date { font-size: 13px; color: var(--text2); }
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.toggle-group {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-left: auto;
+}
+.toggle-btn {
+  padding: 5px 14px;
+  font-size: 13px;
+  background: var(--card);
+  color: var(--text2);
+  border: none;
+  cursor: pointer;
+}
+.toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Sector chips */
+.chips-wrapper {
+  flex-shrink: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 6px 16px 10px;
+}
+.chips-wrapper::-webkit-scrollbar { display: none; }
+.chips {
+  display: flex;
+  gap: 8px;
+  width: max-content;
+}
+.chip {
+  padding: 5px 12px;
+  border-radius: 16px;
+  background: var(--chip);
+  color: var(--text2);
+  font-size: 13px;
+  white-space: nowrap;
+  border: none;
+  cursor: pointer;
+}
+.chip.active {
+  background: var(--chip-active);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Stock list */
+.stock-list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--safe-bottom);
+}
+.stock-card {
+  display: flex;
+  align-items: center;
+  height: 72px;
+  padding: 0 12px;
+  border-bottom: 0.5px solid var(--border);
+}
+.stock-card:active { background: #1c2230; }
+
+.rank {
+  width: 26px;
+  font-size: 13px;
+  color: var(--text2);
+  text-align: center;
+  flex-shrink: 0;
+}
+.info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 8px;
+}
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.code {
+  font-size: 15px;
+  font-weight: 600;
+}
+.name {
+  font-size: 13px;
+  color: var(--text2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.sector-tag {
+  font-size: 11px;
+  color: var(--accent);
+}
+.vol {
+  font-size: 11px;
+  color: var(--text2);
+}
+.change-box {
+  width: 68px;
+  text-align: right;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+.close-price {
+  font-size: 14px;
+  font-weight: 600;
+}
+.change-pct {
+  font-size: 12px;
+  margin-top: 1px;
+}
+.chart-box {
+  width: 100px;
+  height: 48px;
+  flex-shrink: 0;
+}
+.chart-box svg {
+  width: 100px;
+  height: 48px;
+}
+
+/* Loading */
+.loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Count bar */
+.count-bar {
+  padding: 4px 16px 6px;
+  font-size: 12px;
+  color: var(--text2);
+  flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <h1>台股漲幅排行</h1>
+    <span class="date" id="dateLabel"></span>
+  </div>
+  <div class="controls">
+    <div class="toggle-group">
+      <button class="toggle-btn active" data-n="50">Top 50</button>
+      <button class="toggle-btn" data-n="100">Top 100</button>
+    </div>
+  </div>
+</div>
+
+<div class="chips-wrapper">
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="count-bar" id="countBar"></div>
+
+<div class="stock-list" id="stockList">
+  <div class="loading"><div class="spinner"></div></div>
+</div>
+
+<script>
+const API = location.origin + "/api";
+let allStocks = [];
+let klinePaths = {};
+let sectors = [];
+let selectedSector = "";
+let topN = 50;
+
+// --- Helpers ---
+function fmtVol(v) {
+  if (v >= 1e8) return (v / 1e8).toFixed(1) + "億";
+  if (v >= 1e4) return (v / 1e4).toFixed(0) + "萬";
+  return String(v);
+}
+function pctColor(p) { return p > 0 ? "var(--up)" : p < 0 ? "var(--down)" : "var(--text2)"; }
+function pctText(p) { return (p > 0 ? "+" : "") + p.toFixed(2) + "%"; }
+
+// --- API ---
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+// --- Render ---
+function renderChips() {
+  const el = document.getElementById("chips");
+  const items = ["全部", ...sectors];
+  el.innerHTML = items.map(s => {
+    const val = s === "全部" ? "" : s;
+    const cls = val === selectedSector ? "chip active" : "chip";
+    return `<button class="${cls}" data-sector="${val}">${s}</button>`;
+  }).join("");
+}
+
+function buildSvg(paths) {
+  if (!paths || !paths.close_path) return "";
+  const mainColor = paths.is_up ? "var(--up)" : "var(--down)";
+  let svg = `<svg viewBox="0 0 100 48" fill="none" xmlns="http://www.w3.org/2000/svg">`;
+  if (paths.ma20_path) svg += `<path d="${paths.ma20_path}" stroke="rgba(139,148,158,0.3)" stroke-width="0.8" fill="none"/>`;
+  if (paths.ma5_path) svg += `<path d="${paths.ma5_path}" stroke="rgba(139,148,158,0.5)" stroke-width="0.8" fill="none"/>`;
+  svg += `<path d="${paths.close_path}" stroke="${mainColor}" stroke-width="1.5" fill="none"/>`;
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderList() {
+  const filtered = selectedSector
+    ? allStocks.filter(s => s.sector === selectedSector)
+    : allStocks;
+
+  document.getElementById("countBar").textContent = `顯示 ${filtered.length} 檔`;
+
+  const el = document.getElementById("stockList");
+  if (filtered.length === 0) {
+    el.innerHTML = `<div class="loading" style="color:var(--text2);font-size:14px">無資料</div>`;
+    return;
+  }
+
+  el.innerHTML = filtered.map((s, i) => {
+    const pc = pctColor(s.change_pct);
+    const svg = buildSvg(klinePaths[s.code]);
+    return `<div class="stock-card">
+      <span class="rank">${selectedSector ? i + 1 : s.rank}</span>
+      <div class="info">
+        <div class="name-row">
+          <span class="code">${s.code}</span>
+          <span class="name">${s.name}</span>
+        </div>
+        <div class="meta-row">
+          <span class="sector-tag">${s.sector}</span>
+          <span class="vol">${fmtVol(s.volume)}</span>
+        </div>
+      </div>
+      <div class="change-box">
+        <div class="close-price" style="color:${pc}">${s.close.toFixed(2)}</div>
+        <div class="change-pct" style="color:${pc}">${pctText(s.change_pct)}</div>
+      </div>
+      <div class="chart-box">${svg}</div>
+    </div>`;
+  }).join("");
+}
+
+// --- Events ---
+document.querySelector(".toggle-group").addEventListener("click", e => {
+  const btn = e.target.closest(".toggle-btn");
+  if (!btn) return;
+  const n = parseInt(btn.dataset.n);
+  if (n === topN) return;
+  topN = n;
+  document.querySelectorAll(".toggle-btn").forEach(b => b.classList.toggle("active", b === btn));
+  loadData();
+});
+
+document.getElementById("chips").addEventListener("click", e => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  selectedSector = chip.dataset.sector;
+  renderChips();
+  renderList();
+});
+
+// --- Load ---
+async function loadData() {
+  const listEl = document.getElementById("stockList");
+  listEl.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
+
+  try {
+    const [rankRes, secRes] = await Promise.all([
+      fetchJSON(`${API}/ranking?top=${topN}`),
+      sectors.length ? Promise.resolve({ sectors }) : fetchJSON(`${API}/sectors`),
+    ]);
+
+    allStocks = rankRes.data;
+    sectors = secRes.sectors || sectors;
+    document.getElementById("dateLabel").textContent = rankRes.date;
+    renderChips();
+
+    // Render list immediately (without charts)
+    renderList();
+
+    // Fetch K-line paths in background
+    const symbols = allStocks.map(s => s.code).join(",");
+    const pathRes = await fetchJSON(`${API}/batch-kline?symbols=${symbols}`);
+    klinePaths = pathRes;
+    renderList();
+  } catch (err) {
+    listEl.innerHTML = `<div class="loading" style="color:var(--text2);font-size:14px">載入失敗: ${err.message}</div>`;
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>
