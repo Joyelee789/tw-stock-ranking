@@ -1,7 +1,20 @@
+import logging
+
 import httpx
 
 from config import TPEX_QUOTE_URL, to_roc_date
 from services.rate_limiter import twse_rate_limiter
+
+logger = logging.getLogger("uvicorn.error")
+
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+    "Referer": "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_download.php",
+}
+
+_MAX_RETRIES = 2
 
 
 async def fetch_tpex_ranking(date_str: str) -> list[dict]:
@@ -13,10 +26,22 @@ async def fetch_tpex_ranking(date_str: str) -> list[dict]:
     roc_date = to_roc_date(date_str)
     params = {"l": "zh-tw", "d": roc_date, "_": "1"}
 
-    async with httpx.AsyncClient(timeout=30, verify=False) as client:
-        resp = await client.get(TPEX_QUOTE_URL, params=params)
-        resp.raise_for_status()
-        data = resp.json()
+    last_err = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            async with httpx.AsyncClient(timeout=20, verify=False, headers=_HEADERS) as client:
+                resp = await client.get(TPEX_QUOTE_URL, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+            break
+        except Exception as e:
+            last_err = e
+            logger.warning(f"TPEX attempt {attempt+1} failed: {e}")
+            if attempt < _MAX_RETRIES:
+                import asyncio
+                await asyncio.sleep(2)
+    else:
+        raise last_err
 
     # TPEX returns data in tables[0]["data"], not aaData
     tables = data.get("tables", [])

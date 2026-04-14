@@ -1,7 +1,20 @@
+import logging
+
 import httpx
 
 from config import TWSE_MI_INDEX_URL, to_twse_date
 from services.rate_limiter import twse_rate_limiter
+
+logger = logging.getLogger("uvicorn.error")
+
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+    "Referer": "https://www.twse.com.tw/zh/trading/historical/mi-index.html",
+}
+
+_MAX_RETRIES = 2
 
 
 async def fetch_twse_ranking(date_str: str) -> list[dict]:
@@ -16,10 +29,22 @@ async def fetch_twse_ranking(date_str: str) -> list[dict]:
         "type": "ALLBUT0999",
     }
 
-    async with httpx.AsyncClient(timeout=30, verify=False) as client:
-        resp = await client.get(TWSE_MI_INDEX_URL, params=params)
-        resp.raise_for_status()
-        data = resp.json()
+    last_err = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            async with httpx.AsyncClient(timeout=20, verify=False, headers=_HEADERS) as client:
+                resp = await client.get(TWSE_MI_INDEX_URL, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+            break
+        except Exception as e:
+            last_err = e
+            logger.warning(f"TWSE attempt {attempt+1} failed: {e}")
+            if attempt < _MAX_RETRIES:
+                import asyncio
+                await asyncio.sleep(2)
+    else:
+        raise last_err
 
     # Find the table containing individual stock data
     tables = data.get("tables", [])

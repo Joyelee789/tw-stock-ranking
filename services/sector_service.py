@@ -1,8 +1,18 @@
+import logging
+
 import httpx
 from bs4 import BeautifulSoup
 
 from config import TWSE_ISIN_URL, CACHE_DIR, CODES_CACHE_MAX_AGE_DAYS
 from services.cache_manager import read_cache, write_cache, is_cache_fresh
+
+logger = logging.getLogger("uvicorn.error")
+
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+}
 
 _CODES_CACHE_PATH = CACHE_DIR / "codes.json"
 _codes_cache: dict[str, dict] | None = None
@@ -21,16 +31,18 @@ async def get_all_codes() -> dict[str, dict]:
             return data
 
     codes = {}
-    async with httpx.AsyncClient(timeout=30, follow_redirects=True, verify=False) as client:
-        # strMode=2: TWSE listed, strMode=4: TPEX OTC
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True, verify=False, headers=_HEADERS) as client:
         for mode, market in [("2", "上市"), ("4", "上櫃")]:
-            resp = await client.get(TWSE_ISIN_URL, params={"strMode": mode})
-            # ISIN page is Big5 encoded — decode from raw bytes
-            html = resp.content.decode("big5", errors="ignore")
-            _parse_isin_html(html, market, codes)
+            try:
+                resp = await client.get(TWSE_ISIN_URL, params={"strMode": mode})
+                html = resp.content.decode("big5", errors="ignore")
+                _parse_isin_html(html, market, codes)
+            except Exception as e:
+                logger.warning(f"ISIN fetch failed for mode={mode}: {e}")
 
-    write_cache(_CODES_CACHE_PATH, codes)
-    _codes_cache = codes
+    if codes:
+        write_cache(_CODES_CACHE_PATH, codes)
+        _codes_cache = codes
     return codes
 
 

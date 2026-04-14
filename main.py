@@ -64,6 +64,11 @@ app.include_router(kline.router, prefix="/api")
 app.include_router(sectors.router, prefix="/api")
 app.include_router(batch_kline.router, prefix="/api")
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.get("/")
 async def root():
     return FileResponse(config.BASE_DIR / "static" / "index.html")
