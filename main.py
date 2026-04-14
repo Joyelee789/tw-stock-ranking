@@ -21,16 +21,22 @@ if DISABLE_SSL:
 logger = logging.getLogger("uvicorn.error")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    config.CACHE_DIR.mkdir(exist_ok=True)
-    config.KLINE_CACHE_DIR.mkdir(exist_ok=True)
+async def _preload_sectors():
+    """Background task to preload sector codes without blocking startup."""
     try:
         from services.sector_service import get_all_codes
         await get_all_codes()
         logger.info("Sector codes loaded successfully")
     except Exception as e:
         logger.warning(f"Failed to preload sector codes: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import asyncio
+    config.CACHE_DIR.mkdir(exist_ok=True)
+    config.KLINE_CACHE_DIR.mkdir(exist_ok=True)
+    asyncio.create_task(_preload_sectors())
     yield
 
 
