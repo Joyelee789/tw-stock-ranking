@@ -31,7 +31,7 @@ async def get_all_codes() -> dict[str, dict]:
             return data
 
     codes = {}
-    async with httpx.AsyncClient(timeout=20, follow_redirects=True, verify=False, headers=_HEADERS) as client:
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True, verify=False, headers=_HEADERS) as client:
         for mode, market in [("2", "上市"), ("4", "上櫃")]:
             try:
                 resp = await client.get(TWSE_ISIN_URL, params={"strMode": mode})

@@ -14,36 +14,29 @@ _HEADERS = {
     "Referer": "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_download.php",
 }
 
-_MAX_RETRIES = 2
-
 
 async def fetch_tpex_ranking(date_str: str) -> list[dict]:
     """Fetch TPEX OTC stocks daily data for a given date (YYYY-MM-DD).
-    Returns list of {code, name, open, high, low, close, change, change_pct, volume}.
+    Returns empty list on failure (e.g. when called from overseas).
     """
+    try:
+        return await _fetch_tpex(date_str)
+    except Exception as e:
+        logger.warning(f"TPEX fetch failed (may be blocked from overseas): {e}")
+        return []
+
+
+async def _fetch_tpex(date_str: str) -> list[dict]:
     await twse_rate_limiter.acquire()
 
     roc_date = to_roc_date(date_str)
     params = {"l": "zh-tw", "d": roc_date, "_": "1"}
 
-    last_err = None
-    for attempt in range(_MAX_RETRIES + 1):
-        try:
-            async with httpx.AsyncClient(timeout=20, verify=False, headers=_HEADERS) as client:
-                resp = await client.get(TPEX_QUOTE_URL, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-            break
-        except Exception as e:
-            last_err = e
-            logger.warning(f"TPEX attempt {attempt+1} failed: {e}")
-            if attempt < _MAX_RETRIES:
-                import asyncio
-                await asyncio.sleep(2)
-    else:
-        raise last_err
+    async with httpx.AsyncClient(timeout=15, verify=False, headers=_HEADERS) as client:
+        resp = await client.get(TPEX_QUOTE_URL, params=params)
+        resp.raise_for_status()
+        data = resp.json()
 
-    # TPEX returns data in tables[0]["data"], not aaData
     tables = data.get("tables", [])
     rows = tables[0]["data"] if tables and "data" in tables[0] else []
     if not rows:
@@ -58,18 +51,15 @@ async def fetch_tpex_ranking(date_str: str) -> list[dict]:
         except (ValueError, IndexError):
             continue
 
+    logger.info(f"TPEX: fetched {len(results)} stocks")
     return results
 
 
 def _parse_tpex_row(row: list) -> dict | None:
-    """Parse a single row from TPEX tables[0]["data"].
-    Fields: [代號, 名稱, 收盤, 漲跌, 開盤, 最高, 最低, 均價,
-             成交股數, 成交金額(元), 成交筆數, ...]
-    """
+    """Parse a single row from TPEX tables[0]["data"]."""
     code = str(row[0]).strip()
     name = str(row[1]).strip()
 
-    # Only 4-digit stock codes
     if not code.isdigit() or len(code) != 4:
         return None
 
@@ -77,7 +67,7 @@ def _parse_tpex_row(row: list) -> dict | None:
     open_ = _parse_number(row[4])
     high = _parse_number(row[5])
     low = _parse_number(row[6])
-    volume = _parse_number(row[8])  # 成交股數 is at index 8
+    volume = _parse_number(row[8])
 
     if close is None or close == 0 or volume is None or volume == 0:
         return None
